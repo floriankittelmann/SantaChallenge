@@ -1,6 +1,7 @@
 import pandas as pd
 from TSPRoute import TSPRoute
 import math
+import time
 
 
 def get_dist(
@@ -50,12 +51,13 @@ def get_measure(cur_route: TSPRoute, gifts_to_add: pd.DataFrame) -> float:
         last_latitude = lat
         last_longitude = lon
         gifts_already_iterated.append(gift)
-    return measure + get_dist(
+    solution = measure + get_dist(
         last_latitude,
         last_longitude,
         start_end_latitude,
         start_end_longitude
     ) * weight_sleigh
+    return solution
 
 
 class BeamSearch:
@@ -65,17 +67,12 @@ class BeamSearch:
         self.width = width
 
     def make_beam_search(self, cur_route: TSPRoute, init_available_gifts: pd.DataFrame):
-        while not cur_route.is_sleight_full():
-            init_available_gifts = init_available_gifts.where(
-                init_available_gifts['Weight'] <= cur_route.get_free_weight_cargo())
-            init_available_gifts = init_available_gifts.dropna()
-            if init_available_gifts.shape[0] == 0:
-                break
-
+        time_start_beam = time.time()
+        while cur_route.is_sleight_full() == False and init_available_gifts.shape[0] > 0:
             available_gifts = init_available_gifts
             best_sample = self.__get_random_sample(available_gifts)
-            available_gifts = available_gifts.where(available_gifts['GiftId'] != best_sample['GiftId'])
-            available_gifts = available_gifts.dropna()
+            available_gifts.where(available_gifts['GiftId'] != best_sample['GiftId'], inplace=True)
+            available_gifts.dropna(inplace=True)
             best_measure = get_measure(cur_route, pd.DataFrame(best_sample))
             iteration = self.width - 1
             if available_gifts.shape[0] < iteration:
@@ -83,18 +80,23 @@ class BeamSearch:
             for i_width in range(iteration):
                 random_sample = self.__get_random_sample(available_gifts)
                 measure = get_measure(cur_route, pd.DataFrame(random_sample))
-                available_gifts = available_gifts.where(available_gifts['GiftId'] != random_sample['GiftId'])
-                available_gifts = available_gifts.dropna()
+                available_gifts.where(available_gifts['GiftId'] != random_sample['GiftId'], inplace=True)
+                available_gifts.dropna(inplace=True)
                 if measure < best_measure:
                     best_measure = measure
                     best_sample = random_sample
             cur_route.add_gift_to_current_route(best_sample)
-            init_available_gifts = init_available_gifts.where(init_available_gifts['GiftId'] != best_sample['GiftId'])
-            init_available_gifts = init_available_gifts.dropna()
-
+            init_available_gifts.where(init_available_gifts['GiftId'] != best_sample['GiftId'], inplace=True)
+            init_available_gifts.dropna(inplace=True)
+            init_available_gifts.where(
+                init_available_gifts['Weight'] <= cur_route.get_free_weight_cargo(),
+                inplace=True
+            )
+            init_available_gifts.dropna(inplace=True)
+        time_end_beam = time.time()
+        print('{:5.3f}s'.format(time_end_beam - time_start_beam))
         return cur_route
 
     def __get_random_sample(self, dataframe: pd.DataFrame) -> pd.Series:
-        sample = dataframe.sample(ignore_index = True)
+        sample = dataframe.sample(ignore_index=True)
         return sample.loc[0]
-
