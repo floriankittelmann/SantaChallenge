@@ -1,5 +1,5 @@
-def santa_challenge_algorithm(name):
-    print(f'Hi, {name}')
+from MetaheuristicAlgorithm import MetaheuristicAlgorithm
 
 if __name__ == '__main__':
-    santa_challenge_algorithm('PyCharm')
+    algorithm = MetaheuristicAlgorithm("data/gifts.csv", "data/submission.csv")
+    algorithm.create_initial_tsp()

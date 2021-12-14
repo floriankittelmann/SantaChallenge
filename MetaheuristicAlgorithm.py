@@ -1,73 +1,59 @@
 import pandas as pd
+
+from BeamSearch import BeamSearch
 from TSPRoute import TSPRoute
+from Environment import Environment
 
 
 class MetaheuristicAlgorithm:
 
-    def __init__(self, data_path: str):
-        self.all_gifts = pd.read_csv(data_path)
-        self.gifts_assigned_to_route = pd.DataFrame()
+    def __init__(self, data_path: str, output_path: str):
+        self.env = Environment(data_path)
+        self.output_path = output_path
         self.routes = []
 
-    def get_biggest_gift_not_assigned_yet(self) -> pd.Series:
-        not_assigned = self.gifts_assigned_to_route()
-        max_id = not_assigned['Weight'].idxmax()
-        return self.all_gifts.loc[max_id]
+    def __get_all_gifts_assigned(self) -> pd.DataFrame:
+        all_gifts_assigned = pd.DataFrame()
+        for route in self.routes:
+            all_gifts_assigned = all_gifts_assigned.append(route.get_all_gifts_assigned())
+        return all_gifts_assigned
 
-    def get_gifts_not_assigned_yet(self) -> pd.DataFrame:
-        return self.all_gifts.loc[~self.all_gifts["GiftId"].isin(self.gifts_assigned_to_route["GiftId"])]
-
-    def nof_gifts_not_assigned_yet(self) -> int:
-        not_assigned_yet = self.get_gifts_not_assigned_yet()
-        return not_assigned_yet.shape[0]
-
-    def get_gifts_still_fit_in_sleigh_and_not_assigned_yet(self, space_in_slave: float) -> pd.DataFrame:
-        not_assigned = self.get_gifts_not_assigned_yet()
-        return not_assigned.where(not_assigned['Weight'] <= space_in_slave)
-
-    def find_gifts_in_area(self, gift: pd.Series, gifts_to_find_locals: pd.DataFrame) -> pd.DataFrame:
-        threeshold_north_south = 10.0
-        threeshold_west_east = 10.0
-        return gifts_to_find_locals.where(
-            gifts_to_find_locals["Longitude"] >= (gift["Longitude"] - threeshold_west_east) and
-            gifts_to_find_locals["Longitude"] <= (gift["Longitude"] + threeshold_west_east) and
-            gifts_to_find_locals["Latitude"] >= (gift["Latitude"] - threeshold_north_south) and
-            gifts_to_find_locals["Latitude"] <= (gift["Latitude"] + threeshold_north_south)
-        )
-
-    def beam_search(
-            self,
-            lookahead: int,
-            width: int,
-            nof_route: int,
-            gifts_available: pd.DataFrame,
-            initial_gift: pd.Series
-    ) -> TSPRoute:
-        tsp_route = TSPRoute(nof_route)
-        # TODO: make sure that during beamsearch the choosen gifts doesnt get choosen twice -> maybe make a class
-        return tsp_route
-
-    def create_route(self, nof_route):
-        biggest_gift = self.get_biggest_gift_not_assigned_yet()
-        # TODO: append self.gifts_assigned_to_route with biggest gift
-        # to implement
-
-        # TODO: find gifts in area, with gifts not assigned yet
-        # to implement
-        local_gifts_and_available = pd.DataFrame()
-
-        # TODO: make beam search for others with lookahead etc.
-        tsp_route = self.beam_search(lookahead=1, width=1, nofRoute=nof_route, gifts_available=local_gifts_and_available, initial_gift=biggest_gift)
-
-        # TODO: make local improvements of with 2-opt for example
+    def __create_route(self, nof_route):
+        print("start create")
+        biggest_gift = self.env.get_biggest_gift_not_assigned_yet(self.__get_all_gifts_assigned())
+        cur_tsp_route = TSPRoute(nof_route)
+        cur_tsp_route.add_gift_to_current_route(biggest_gift)
+        available_gifts = self.env.find_gifts_in_area(biggest_gift, self.__get_all_gifts_assigned(), cur_tsp_route,
+                                                      5.0)
+        beam_search = BeamSearch(width=3)
+        print("start beam search")
+        tsp_route = beam_search.make_beam_search(cur_tsp_route, available_gifts)
         tsp_route.locally_optimize()
         return tsp_route
 
     def create_initial_tsp(self):
-        index = 1
-        while self.nof_gifts_not_assigned_yet() > 0:
-            tsp = self.create_route(index)
+        index = 0
+        while True:
+            nof_not_assigned = self.env.nof_gifts_not_assigned_yet(self.__get_all_gifts_assigned())
+            if nof_not_assigned < 0:
+                break
+            print("--------- create a new route -------------")
+            print("nof not assigned: ", nof_not_assigned)
+            print("tripId ", index)
+            tsp = self.__create_route(index)
             self.routes.append(tsp)
+            print("free weight: ", tsp.get_free_weight_cargo())
             index = index + 1
+        self.__write_to_csv()
 
+    def __write_to_csv(self):
+        df = pd.DataFrame()
+        for route in self.routes:
+            route_number = route.get_route_number()
 
+            df_route = route.get_all_gifts_assigned()
+            df_route.set_index("GiftId")
+            df_route['TripId'] = route_number
+            df_array = [df, df_route]
+            df = pd.concat(df_array)
+        df.to_csv(path_or_buf=self.output_path)
