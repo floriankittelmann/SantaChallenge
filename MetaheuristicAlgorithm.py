@@ -35,7 +35,7 @@ class MetaheuristicAlgorithm:
         index = 0
         while True:
             nof_not_assigned = self.env.nof_gifts_not_assigned_yet(self.__get_all_gifts_assigned())
-            if nof_not_assigned < 0:
+            if nof_not_assigned <= 0:
                 break
             print("--------- create a new route -------------")
             print("nof not assigned: ", nof_not_assigned)
