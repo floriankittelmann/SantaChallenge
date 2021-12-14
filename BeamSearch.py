@@ -28,36 +28,30 @@ def gifts_not_already_taken(
     ]
 
 
+def dist_to_last(serie: pd.Series, all_data: pd.DataFrame):
+    index = serie.name
+    cur_lat = serie['Latitude']
+    cur_lon = serie['Longitude']
+    if index == 0:
+        lat_last = 90.0
+        lon_last = 0.0
+    else:
+        lat_last = all_data.loc[index - 1]['Latitude']
+        lon_last = all_data.loc[index - 1]['Longitude']
+    return get_dist(lat_last, lon_last, cur_lat, cur_lon)
+
+
 def get_measure(cur_route: TSPRoute, gifts_to_add: pd.DataFrame) -> float:
-    start_end_latitude = 90.0
-    start_end_longitude = 0.0
-    last_latitude = start_end_latitude
-    last_longitude = start_end_longitude
     df_route = cur_route.get_all_gifts_assigned()
     df_routes_together = [df_route, gifts_to_add]
     df = pd.concat(df_routes_together)
-    measure = 0.0
-    gifts_already_iterated = pd.DataFrame()
-    weight_sleigh = 10
-    for index, gift in df.iterrows():
-        lat = gift['Latitude']
-        lon = gift['Longitude']
-        weight_gifts = 0
-        if gifts_already_iterated.shape[0] != 0:
-            gifts_in_sleigh = df.loc[~df["GiftId"].isin(gifts_already_iterated['GiftId'])]
-            weight_gifts = gifts_in_sleigh['Weight'].sum()
-        measure = measure + get_dist(last_latitude, last_longitude, lat, lon) * (
-                weight_gifts + weight_sleigh)
-        last_latitude = lat
-        last_longitude = lon
-        gifts_already_iterated.append(gift)
-    solution = measure + get_dist(
-        last_latitude,
-        last_longitude,
-        start_end_latitude,
-        start_end_longitude
-    ) * weight_sleigh
-    return solution
+    weight_sleigh = 10.0
+
+    df = df.append({'GiftId': None, 'Latitude': 90.0, 'Longitude': 0.0, 'Weight': weight_sleigh}, ignore_index=True)
+    df['weight_tot'] = df.loc[::-1, 'Weight'].cumsum()[::-1]
+    df['dist_to_last'] = df.apply(lambda a: dist_to_last(a, df), axis=1)
+    df['dist_mult_weight'] = df.apply(lambda a: a['weight_tot'] * a['dist_to_last'], axis=1)
+    return df['dist_mult_weight'].sum()
 
 
 class BeamSearch:
@@ -67,7 +61,6 @@ class BeamSearch:
         self.width = width
 
     def make_beam_search(self, cur_route: TSPRoute, init_available_gifts: pd.DataFrame):
-        time_start_beam = time.time()
         while cur_route.is_sleight_full() == False and init_available_gifts.shape[0] > 0:
             available_gifts = init_available_gifts
             best_sample = self.__get_random_sample(available_gifts)
@@ -93,8 +86,6 @@ class BeamSearch:
                 inplace=True
             )
             init_available_gifts.dropna(inplace=True)
-        time_end_beam = time.time()
-        print('{:5.3f}s'.format(time_end_beam - time_start_beam))
         return cur_route
 
     def __get_random_sample(self, dataframe: pd.DataFrame) -> pd.Series:

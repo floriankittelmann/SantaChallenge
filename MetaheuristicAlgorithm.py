@@ -1,4 +1,6 @@
 import pandas as pd
+import time
+import math
 
 from BeamSearch import BeamSearch
 from TSPRoute import TSPRoute
@@ -19,7 +21,8 @@ class MetaheuristicAlgorithm:
         return all_gifts_assigned
 
     def __create_route(self, nof_route):
-        print("start create")
+        time_start_beam = time.time()
+
         biggest_gift = self.env.get_biggest_gift_not_assigned_yet(self.__get_all_gifts_assigned())
         cur_tsp_route = TSPRoute(nof_route)
         cur_tsp_route.add_gift_to_current_route(biggest_gift)
@@ -28,21 +31,41 @@ class MetaheuristicAlgorithm:
         beam_search = BeamSearch(width=3)
         print("start beam search")
         tsp_route = beam_search.make_beam_search(cur_tsp_route, available_gifts)
-        tsp_route.locally_optimize()
-        return tsp_route
+
+        #tsp_route.locally_optimize()
+        time_end_beam = time.time()
+        time_in_s = time_end_beam - time_start_beam
+        print("time used for beam_search: ", '{:5.3f}s'.format(time_in_s))
+        return tsp_route, time_in_s
 
     def create_initial_tsp(self):
         index = 0
+        nof_gifts_total = self.env.nof_gifts_not_assigned_yet(self.__get_all_gifts_assigned())
+        time_in_s = None
+        last_nof_not_assigned = None
         while True:
             nof_not_assigned = self.env.nof_gifts_not_assigned_yet(self.__get_all_gifts_assigned())
+            if time_in_s is not None and last_nof_not_assigned is not None:
+                nof_assigned_in_this_round = last_nof_not_assigned - nof_not_assigned
+                time_to_finish_s = nof_not_assigned / nof_assigned_in_this_round * time_in_s
+                time_to_finish_min = time_to_finish_s / 60.0
+                time_to_finish_s = time_to_finish_s % 60
+                time_to_finish_min = math.floor(time_to_finish_min)
+
+                time_to_finish_h = time_to_finish_min / 60.0
+                time_to_finish_min = time_to_finish_min % 60
+                time_to_finish_h = math.floor(time_to_finish_h)
+                print("approx time use to finish: ", time_to_finish_h, 'h ', time_to_finish_min, 'min ', time_to_finish_s, 's')
+
             if nof_not_assigned <= 0:
                 break
             print("--------- create a new route -------------")
             print("nof not assigned: ", nof_not_assigned)
             print("tripId ", index)
-            tsp = self.__create_route(index)
+            tsp, time_in_s = self.__create_route(index)
             self.routes.append(tsp)
-            print("free weight: ", tsp.get_free_weight_cargo())
+            #print("free weight: ", tsp.get_free_weight_cargo())
+            last_nof_not_assigned = nof_not_assigned
             index = index + 1
         self.__write_to_csv()
 
