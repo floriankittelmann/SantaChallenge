@@ -71,7 +71,6 @@ class BeamSearch:
             init_available_gifts = init_available_gifts.dropna()
             if init_available_gifts.shape[0] == 0:
                 break
-                break
 
             available_gifts = init_available_gifts
             best_sample = self.__get_random_sample(available_gifts)
