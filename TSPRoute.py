@@ -44,9 +44,10 @@ class TSPRoute:
     def locally_optimize(self):
         gifts = self.gifts
         
-        # set the maximum of iterations that are made without the solution to be improved, before quitting
+        # set the maximum of iterations that are made without the solution to be improved, before quitting. tours usually have
+        # something between 50 and 100. setting it to the amount of gifts yields in a good performance / improvment ratio
         non_improving_iterations = 0
-        max_non_improving_iterations = 50
+        max_non_improving_iterations = len(gifts.index)
 
         gifts = gifts.reset_index()
 
@@ -56,7 +57,8 @@ class TSPRoute:
 
         print("before optimization: " + str(best_measure))
 
-        while non_improving_iterations < max_non_improving_iterations:
+        # at least three gifts must be left. the biggest one left to start the tour and two to swap
+        while non_improving_iterations < max_non_improving_iterations and len(best_index) >= 3:
              # choose two random gifts to swap, start with index 1, as the first (biggest) gift should not be swapped
             random_gift_index1 = random.randint(1, len(best_index) - 1)
             random_gift_index2 = random.randint(1, len(best_index) - 1)
