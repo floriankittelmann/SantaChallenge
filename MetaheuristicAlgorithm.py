@@ -26,13 +26,12 @@ class MetaheuristicAlgorithm:
         biggest_gift = self.env.get_biggest_gift_not_assigned_yet(self.__get_all_gifts_assigned())
         cur_tsp_route = TSPRoute(nof_route)
         cur_tsp_route.add_gift_to_current_route(biggest_gift)
-        available_gifts = self.env.find_gifts_in_area(biggest_gift, self.__get_all_gifts_assigned(), cur_tsp_route,
-                                                      5.0)
+        available_gifts = self.env.find_gifts_in_area(biggest_gift, self.__get_all_gifts_assigned(), cur_tsp_route)
         beam_search = BeamSearch(width=3)
-        print("start beam search")
+        print("start beam search, with gifts: " + str(len(available_gifts.index)))
         tsp_route = beam_search.make_beam_search(cur_tsp_route, available_gifts)
 
-        #tsp_route.locally_optimize()
+        tsp_route.locally_optimize()
         time_end_beam = time.time()
         time_in_s = time_end_beam - time_start_beam
         print("time used for beam_search: ", '{:5.3f}s'.format(time_in_s))
